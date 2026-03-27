@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: teachers
+    // Document ID: {teacherId} (matches Firebase Auth UID)
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - schoolName: string (required)
+    //   - photoUrl: string (optional)
+    //
+    // Collection: teachers/{teacherId}/students
+    // Document ID: {studentId} (UUID)
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - rollNumber: string (required)
+    //   - grade: string (required)
+    //   - section: string (required)
+    //   - email: string (optional)
+    //   - phone: string (optional)
+    //   - createdAt: number (required)
+    //
+    // Collection: teachers/{teacherId}/attendance
+    // Document ID: {recordId} (UUID)
+    // Fields:
+    //   - id: string (required)
+    //   - studentId: string (required)
+    //   - date: string (required, YYYY-MM-DD)
+    //   - status: string (required, 'present' | 'absent')
+    //   - timestamp: number (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(teacherId) {
+      return isAuthenticated() && request.auth.uid == teacherId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidTeacher(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.schoolName is string && data.schoolName.size() > 0 && data.schoolName.size() < 100 &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 1000000));
+    }
+
+    function isValidStudent(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.rollNumber is string && data.rollNumber.size() > 0 && data.rollNumber.size() < 20 &&
+             data.grade is string && data.grade.size() > 0 && data.grade.size() < 20 &&
+             data.section is string && data.section.size() > 0 && data.section.size() < 20 &&
+             data.createdAt is number &&
+             (!('email' in data) || (data.email is string && isValidEmail(data.email))) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 20));
+    }
+
+    function isValidAttendance(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.studentId is string && data.studentId.size() > 0 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.status in ['present', 'absent'] &&
+             data.timestamp is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /teachers/{teacherId} {
+      allow read: if isOwner(teacherId);
+      allow create: if isOwner(teacherId) && isValidTeacher(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'email', 'schoolName', 'photoUrl']);
+      allow update: if isOwner(teacherId) && isValidTeacher(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'email', 'schoolName', 'photoUrl']);
+      
+      match /students/{studentId} {
+        allow read: if isOwner(teacherId);
+        allow create: if isOwner(teacherId) && isValidStudent(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'rollNumber', 'grade', 'section', 'email', 'phone', 'createdAt']);
+        allow update: if isOwner(teacherId) && isValidStudent(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'rollNumber', 'grade', 'section', 'email', 'phone', 'createdAt']);
+        allow delete: if isOwner(teacherId);
+      }
+      
+      match /attendance/{recordId} {
+        allow read: if isOwner(teacherId);
+        allow create: if isOwner(teacherId) && isValidAttendance(request.resource.data) && hasOnlyAllowedFields(['id', 'studentId', 'date', 'status', 'timestamp']);
+        allow update: if isOwner(teacherId) && isValidAttendance(request.resource.data) && hasOnlyAllowedFields(['id', 'studentId', 'date', 'status', 'timestamp']);
+        allow delete: if isOwner(teacherId);
+      }
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

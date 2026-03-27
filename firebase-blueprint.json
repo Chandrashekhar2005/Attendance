@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Teacher": {
+      "title": "Teacher",
+      "description": "Teacher profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "schoolName": { "type": "string" },
+        "photoUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "schoolName"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "rollNumber": { "type": "string" },
+        "grade": { "type": "string" },
+        "section": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "name", "rollNumber", "grade", "section", "createdAt"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance record for a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["present", "absent"] },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "studentId", "date", "status", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/teachers/{teacherId}": {
+      "schema": "Teacher",
+      "description": "Collection of teacher profiles"
+    },
+    "/teachers/{teacherId}/students/{studentId}": {
+      "schema": "Student",
+      "description": "Collection of students for a specific teacher"
+    },
+    "/teachers/{teacherId}/attendance/{recordId}": {
+      "schema": "AttendanceRecord",
+      "description": "Collection of attendance records for a specific teacher"
+    }
+  }
+}
