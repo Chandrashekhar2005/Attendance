@@ -13,7 +13,7 @@ export const Settings: React.FC = () => {
   const { isDarkMode, toggleDarkMode, teacher, updateTeacher, deleteAttendanceByDate, attendance } = useApp();
   const [deleteDate, setDeleteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [deletedCount, setDeletedCount] = useState(0);
-  const [activeModal, setActiveModal] = useState<'privacy' | 'about' | 'success' | 'confirm' | 'no-data' | 'remove-photo' | null>(null);
+  const [activeModal, setActiveModal] = useState<'privacy' | 'about' | 'success' | 'confirm' | 'no-data' | 'remove-photo' | 'view-photo' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,7 +125,7 @@ export const Settings: React.FC = () => {
           <div className="flex items-center space-x-4">
             <div className="relative group">
               <button 
-                onClick={() => teacher?.photoUrl ? setActiveModal('remove-photo') : fileInputRef.current?.click()}
+                onClick={() => teacher?.photoUrl ? setActiveModal('view-photo') : fileInputRef.current?.click()}
                 className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-xl font-bold overflow-hidden hover:opacity-90 transition-opacity"
               >
                 {teacher?.photoUrl ? (
@@ -339,6 +339,51 @@ export const Settings: React.FC = () => {
             </motion.div>
           </motion.div>
         )}
+        {activeModal === 'view-photo' && teacher?.photoUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6"
+            onClick={() => setActiveModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-sm w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="aspect-square w-full">
+                  <img src={teacher.photoUrl} alt={teacher.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="p-4 flex space-x-3">
+                  <button
+                    onClick={() => setActiveModal(null)}
+                    className="flex-1 bg-gray-100 dark:bg-neutral-800 py-3 rounded-xl font-bold text-sm"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => setActiveModal('remove-photo')}
+                    className="flex-1 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 py-3 rounded-xl font-bold text-sm flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 size={16} />
+                    <span>Remove</span>
+                  </button>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveModal(null)}
+                className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
         {activeModal === 'remove-photo' && (
           <motion.div
             initial={{ opacity: 0 }}

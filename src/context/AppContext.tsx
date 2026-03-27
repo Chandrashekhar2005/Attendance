@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { parseISO } from 'date-fns';
 import { AppState, Student, AttendanceRecord, Teacher } from '../types';
 import { storage } from '../services/storage';
 import { auth, db } from '../firebase';
@@ -185,9 +186,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const generateId = () => {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  };
+
   const addStudent = async (studentData: Omit<Student, 'id' | 'createdAt'>) => {
     if (!state.teacher?.id) return;
-    const id = crypto.randomUUID();
+    const id = generateId();
     const createdAt = Date.now();
     const newStudent: Student = { ...studentData, id, createdAt };
     const path = `teachers/${state.teacher.id}/students/${id}`;
@@ -226,7 +238,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const teacherId = state.teacher.id;
     
     const existing = state.attendance.find(a => a.studentId === studentId && a.date === date);
-    const path = `teachers/${teacherId}/attendance`;
+    const recordId = existing ? existing.id : generateId();
+    const docPath = `teachers/${teacherId}/attendance/${recordId}`;
 
     try {
       if (existing) {
@@ -234,18 +247,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           await updateDoc(doc(db, 'teachers', teacherId, 'attendance', existing.id), { status, timestamp: Date.now() });
         }
       } else {
-        const id = crypto.randomUUID();
         const newRecord: AttendanceRecord = {
-          id,
+          id: recordId,
           studentId,
           date,
           status,
           timestamp: Date.now(),
         };
-        await setDoc(doc(db, 'teachers', teacherId, 'attendance', id), newRecord);
+        await setDoc(doc(db, 'teachers', teacherId, 'attendance', recordId), newRecord);
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, path);
+      handleFirestoreError(error, OperationType.WRITE, docPath);
     }
   };
 
@@ -273,6 +285,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setSelectedDate = (date: string) => {
+    if (!date) return;
+    const parsed = parseISO(date);
+    if (isNaN(parsed.getTime())) return;
     setState(prev => ({ ...prev, selectedDate: date }));
   };
 

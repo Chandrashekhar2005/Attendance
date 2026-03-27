@@ -14,7 +14,12 @@ export const Dashboard: React.FC = () => {
   
   // Defensive check for selectedDate
   const safeDate = selectedDate || format(new Date(), 'yyyy-MM-dd');
-  const dateObj = parseISO(safeDate);
+  let dateObj = parseISO(safeDate);
+  
+  // If date is invalid, fallback to today
+  if (isNaN(dateObj.getTime())) {
+    dateObj = new Date();
+  }
 
   const todayAttendance = attendance.filter(a => a.date === safeDate);
   const presentCount = todayAttendance.filter(a => a.status === 'present').length;

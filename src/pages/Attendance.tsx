@@ -6,17 +6,27 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { parseISO, format, addDays, subDays } from 'date-fns';
-import { ChevronLeft, ChevronRight, Check, X, Search, Trash2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, X, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 
 export const Attendance: React.FC = () => {
-  const { students, attendance, markAttendance, deleteAttendanceRecord, selectedDate, setSelectedDate } = useApp();
+  const { students, attendance, markAttendance, selectedDate, setSelectedDate } = useApp();
   const [search, setSearch] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState<{ studentId: string; name: string } | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarView, setCalendarView] = useState<'month' | 'year' | 'decade' | 'century'>('month');
 
   // Defensive check for selectedDate
   const safeDate = selectedDate || format(new Date(), 'yyyy-MM-dd');
-  const dateObj = parseISO(safeDate);
+  let dateObj = parseISO(safeDate);
+  
+  // If date is invalid, fallback to today
+  if (isNaN(dateObj.getTime())) {
+    dateObj = new Date();
+  }
+
+  const years = Array.from({ length: 21 }, (_, i) => new Date().getFullYear() - 10 + i);
   
   const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -29,14 +39,14 @@ export const Attendance: React.FC = () => {
   };
 
   const handleDateChange = (newDate: Date) => {
+    if (isNaN(newDate.getTime())) return;
     setSelectedDate(format(newDate, 'yyyy-MM-dd'));
   };
 
-  const handleDelete = () => {
-    if (confirmDelete) {
-      deleteAttendanceRecord(confirmDelete.studentId, safeDate);
-      setConfirmDelete(null);
-    }
+  const handleYearChange = (year: number) => {
+    const newDate = new Date(dateObj);
+    newDate.setFullYear(year);
+    handleDateChange(newDate);
   };
 
   const markedCount = students.filter(s => getStatus(s.id)).length;
@@ -51,25 +61,74 @@ export const Attendance: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between bg-white dark:bg-neutral-900 p-2 rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm">
-          <button
-            onClick={() => handleDateChange(subDays(dateObj, 1))}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="text-center">
-            <p className="font-bold">{format(dateObj, 'MMMM do, yyyy')}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
-              {format(dateObj, 'EEEE')}
-            </p>
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm overflow-hidden">
+          <div className="p-2 flex items-center justify-between">
+            <button
+              onClick={() => handleDateChange(subDays(dateObj, 1))}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            
+            <button 
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="flex-1 text-center py-1 hover:bg-gray-50 dark:hover:bg-neutral-800 rounded-xl transition-colors group"
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <CalendarIcon size={14} className="text-indigo-500" />
+                <p className="font-bold">{format(dateObj, 'MMMM do, yyyy')}</p>
+                <CalendarIcon size={14} className="text-indigo-500" />
+              </div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">
+                {format(dateObj, 'EEEE')}
+              </p>
+            </button>
+
+            <button
+              onClick={() => handleDateChange(addDays(dateObj, 1))}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
-          <button
-            onClick={() => handleDateChange(addDays(dateObj, 1))}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
-          >
-            <ChevronRight size={20} />
-          </button>
+
+          <AnimatePresence>
+            {showCalendar && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="border-t border-gray-100 dark:border-neutral-800 overflow-hidden"
+              >
+                <div className="p-4 flex flex-col items-center bg-gray-50/50 dark:bg-neutral-800/30 space-y-4">
+                  <div className="flex items-center space-x-2 w-full max-w-md px-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Year:</span>
+                    <select
+                      value={dateObj.getFullYear()}
+                      onChange={(e) => handleYearChange(parseInt(e.target.value))}
+                      className="flex-1 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-lg py-1 px-2 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {years.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Calendar
+                    onChange={(value) => {
+                      if (value instanceof Date) {
+                        handleDateChange(value);
+                        setShowCalendar(false);
+                      }
+                    }}
+                    view={calendarView}
+                    onViewChange={({ view }) => setCalendarView(view as any)}
+                    value={dateObj}
+                    className="border-none rounded-xl shadow-inner bg-transparent w-full max-w-md"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="relative">
@@ -113,15 +172,6 @@ export const Attendance: React.FC = () => {
                 </div>
 
                 <div className="flex space-x-2">
-                  {status && (
-                    <button
-                      onClick={() => setConfirmDelete({ studentId: student.id, name: student.name })}
-                      className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-50 dark:bg-neutral-800 text-gray-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
-                      title="Clear attendance"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
                   <button
                     onClick={() => markAttendance(student.id, safeDate, 'present')}
                     className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
@@ -148,48 +198,6 @@ export const Attendance: React.FC = () => {
           })
         )}
       </div>
-
-      <AnimatePresence>
-        {confirmDelete && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-            onClick={() => setConfirmDelete(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-neutral-900 w-full max-w-xs rounded-3xl p-8 shadow-2xl text-center"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <AlertCircle size={32} />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Clear Record?</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to clear the attendance record for <span className="font-bold text-gray-700 dark:text-gray-300">{confirmDelete.name}</span> on {format(dateObj, 'MMM do')}?
-              </p>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setConfirmDelete(null)}
-                  className="flex-1 bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="flex-1 bg-rose-500 text-white py-3 rounded-xl font-bold hover:bg-rose-600 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

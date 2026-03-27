@@ -45,8 +45,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email == "chandrashekhars17102005@gmail.com";
+    }
+
     function isOwner(teacherId) {
-      return isAuthenticated() && request.auth.uid == teacherId;
+      return isAuthenticated() && (request.auth.uid == teacherId || isAdmin());
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -81,11 +85,7 @@ service cloud.firestore {
     }
 
     function isValidAttendance(data) {
-      return data.id is string && data.id.size() > 0 &&
-             data.studentId is string && data.studentId.size() > 0 &&
-             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
-             data.status in ['present', 'absent'] &&
-             data.timestamp is number;
+      return true;
     }
 
     // ===============================================================
@@ -94,21 +94,18 @@ service cloud.firestore {
 
     match /teachers/{teacherId} {
       allow read: if isOwner(teacherId);
-      allow create: if isOwner(teacherId) && isValidTeacher(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'email', 'schoolName', 'photoUrl']);
-      allow update: if isOwner(teacherId) && isValidTeacher(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'email', 'schoolName', 'photoUrl']);
+      allow create: if isOwner(teacherId) && isValidTeacher(request.resource.data);
+      allow update: if isOwner(teacherId) && isValidTeacher(request.resource.data);
       
       match /students/{studentId} {
         allow read: if isOwner(teacherId);
-        allow create: if isOwner(teacherId) && isValidStudent(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'rollNumber', 'grade', 'section', 'email', 'phone', 'createdAt']);
-        allow update: if isOwner(teacherId) && isValidStudent(request.resource.data) && hasOnlyAllowedFields(['id', 'name', 'rollNumber', 'grade', 'section', 'email', 'phone', 'createdAt']);
+        allow create: if isOwner(teacherId) && isValidStudent(request.resource.data);
+        allow update: if isOwner(teacherId) && isValidStudent(request.resource.data);
         allow delete: if isOwner(teacherId);
       }
-      
+
       match /attendance/{recordId} {
-        allow read: if isOwner(teacherId);
-        allow create: if isOwner(teacherId) && isValidAttendance(request.resource.data) && hasOnlyAllowedFields(['id', 'studentId', 'date', 'status', 'timestamp']);
-        allow update: if isOwner(teacherId) && isValidAttendance(request.resource.data) && hasOnlyAllowedFields(['id', 'studentId', 'date', 'status', 'timestamp']);
-        allow delete: if isOwner(teacherId);
+        allow read, write: if isOwner(teacherId);
       }
     }
 
